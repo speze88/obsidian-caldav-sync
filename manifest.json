@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-caldav-sync",
+  "name": "CalDAV Task Sync",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Bidirectionally synchronize markdown tasks tagged with #caldav to/from a CalDAV server.",
+  "author": "obsidian-caldav-sync",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}
