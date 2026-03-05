@@ -27,11 +27,18 @@ export class SyncManager {
    * Sync all tagged tasks in a file.
    * Returns true if the file content was modified (patch applied).
    */
+  private obsidianUrl(app: App, file: TFile): string {
+    const vault = encodeURIComponent(app.vault.getName());
+    const filePath = encodeURIComponent(file.path.replace(/\.md$/, ""));
+    return `obsidian://open?vault=${vault}&file=${filePath}`;
+  }
+
   async syncFile(file: TFile, app: App): Promise<boolean> {
     if (!this.client.isInitialized()) return false;
 
     const content = await app.vault.read(file);
     const tasks = parseTasks(content, this.settings.syncTag);
+    const noteUrl = this.obsidianUrl(app, file);
 
     if (tasks.length === 0) return false;
 
@@ -47,6 +54,8 @@ export class SyncManager {
             uid,
             summary: task.title,
             completed: task.completed,
+            dueDate: task.dueDate,
+            url: noteUrl,
           });
           patches.set(task.lineIndex, buildLineWithUid(task, uid, this.settings.syncTag));
         } else {
@@ -60,12 +69,14 @@ export class SyncManager {
           }
 
           let patchLine: string | null = null;
+          let needsServerUpdate = false;
+          let updatedData = { ...remote.data, url: noteUrl };
 
           // Conflict resolution rules:
           // 1. Local [x], remote NEEDS-ACTION → local wins, push COMPLETED
           if (task.completed && !remote.data.completed) {
-            const updated = { ...remote.data, completed: true };
-            await this.updateWithRetry(updated, remote.etag);
+            updatedData.completed = true;
+            needsServerUpdate = true;
           }
           // 2. Local [ ], remote COMPLETED → remote wins, pull [x]
           else if (!task.completed && remote.data.completed) {
@@ -74,15 +85,8 @@ export class SyncManager {
 
           // 3. Title differs → remote wins, pull title update
           if (task.title !== remote.data.summary) {
-            // Re-fetch if we just updated (etag may have changed)
-            if (task.completed && !remote.data.completed) {
-              remote = await this.client.fetchVTodo(task.uid);
-              if (!remote) continue;
-            }
             const updatedTask = { ...task, title: remote.data.summary };
-            const completed = patchLine
-              ? true // already applying completion from remote
-              : task.completed;
+            const completed = patchLine ? true : task.completed;
             patchLine = buildLineWithCompletion(
               updatedTask,
               completed,
@@ -91,8 +95,33 @@ export class SyncManager {
             );
           }
 
-          // Also push title change if local title differs and remote was NOT the one that changed it
-          // (handled above — remote always wins on title in v1)
+          // 4. Due date: local wins → push to server; remote-only due date → pull to local
+          const localDue = task.dueDate ?? null;
+          const remoteDue = remote.data.dueDate ?? null;
+          if (localDue !== remoteDue) {
+            if (localDue !== null) {
+              // Local has due date (or changed it) → push to server
+              updatedData.dueDate = localDue;
+              needsServerUpdate = true;
+            } else {
+              // Remote has due date, local doesn't → pull to local
+              const baseTask = patchLine
+                ? { ...task, title: remote.data.summary }
+                : task;
+              const completed = patchLine ? (remote.data.completed || task.completed) : task.completed;
+              patchLine = buildLineWithCompletion(
+                baseTask,
+                completed,
+                this.settings.syncTag,
+                task.uid,
+                remoteDue
+              );
+            }
+          }
+
+          if (needsServerUpdate) {
+            await this.updateWithRetry(updatedData, remote.etag);
+          }
 
           if (patchLine !== null) {
             patches.set(task.lineIndex, patchLine);

@@ -1,6 +1,7 @@
 // Matches: optional indent, "- [x/X/ ]", whitespace, rest of line
 const TASK_REGEX = /^(\s*-\s+\[)([xX ])\]\s+(.+)$/;
 const UID_REGEX = /<!--\s*caldav-uid:([\w-]+)\s*-->/;
+const DUE_DATE_REGEX = /📅\s*(\d{4}-\d{2}-\d{2})/;
 
 export interface ParsedTask {
   lineIndex: number;
@@ -8,6 +9,7 @@ export interface ParsedTask {
   completed: boolean;
   title: string;
   uid: string | null;
+  dueDate: string | null;
 }
 
 /**
@@ -29,11 +31,14 @@ export function parseTasks(content: string, syncTag: string): ParsedTask[] {
     const completed = match[2].toLowerCase() === "x";
     const uidMatch = UID_REGEX.exec(fullTaskText);
     const uid = uidMatch ? uidMatch[1] : null;
+    const dueDateMatch = DUE_DATE_REGEX.exec(fullTaskText);
+    const dueDate = dueDateMatch ? dueDateMatch[1] : null;
 
-    // Extract title: remove UID comment, sync tag, and trailing whitespace
+    // Extract title: remove UID comment, sync tag, due date, and trailing whitespace
     let title = fullTaskText
       .replace(UID_REGEX, "")
       .replace(syncTag, "")
+      .replace(DUE_DATE_REGEX, "")
       .trim();
 
     tasks.push({
@@ -42,6 +47,7 @@ export function parseTasks(content: string, syncTag: string): ParsedTask[] {
       completed,
       title,
       uid,
+      dueDate,
     });
   }
 
@@ -55,7 +61,8 @@ export function parseTasks(content: string, syncTag: string): ParsedTask[] {
 export function buildLineWithUid(task: ParsedTask, uid: string, syncTag: string): string {
   const marker = task.completed ? "x" : " ";
   const indent = task.raw.match(/^(\s*)/)?.[1] ?? "";
-  return `${indent}- [${marker}] ${task.title} ${syncTag} <!-- caldav-uid:${uid} -->`;
+  const duePart = task.dueDate ? ` 📅 ${task.dueDate}` : "";
+  return `${indent}- [${marker}] ${task.title}${duePart} ${syncTag} <!-- caldav-uid:${uid} -->`;
 }
 
 /**
@@ -66,12 +73,15 @@ export function buildLineWithCompletion(
   task: ParsedTask,
   completed: boolean,
   syncTag: string,
-  uid?: string
+  uid?: string,
+  dueDate?: string | null
 ): string {
   const marker = completed ? "x" : " ";
   const indent = task.raw.match(/^(\s*)/)?.[1] ?? "";
   const uidPart = uid ? ` <!-- caldav-uid:${uid} -->` : task.uid ? ` <!-- caldav-uid:${task.uid} -->` : "";
-  return `${indent}- [${marker}] ${task.title} ${syncTag}${uidPart}`;
+  const resolvedDue = dueDate !== undefined ? dueDate : task.dueDate;
+  const duePart = resolvedDue ? ` 📅 ${resolvedDue}` : "";
+  return `${indent}- [${marker}] ${task.title}${duePart} ${syncTag}${uidPart}`;
 }
 
 /**

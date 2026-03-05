@@ -4,7 +4,7 @@ import builtins from "builtin-modules";
 
 const prod = process.argv[2] === "production";
 
-esbuild.build({
+const options = {
   banner: {
     js: "/* obsidian-caldav-sync */",
   },
@@ -37,10 +37,15 @@ esbuild.build({
     ...builtins,
   ],
   format: "cjs",
-  watch: !prod,
   target: "es2018",
   logLevel: "info",
   sourcemap: prod ? false : "inline",
   treeShaking: true,
   outfile: "main.js",
-}).catch(() => process.exit(1));
+};
+
+if (prod) {
+  esbuild.build(options).catch(() => process.exit(1));
+} else {
+  esbuild.context(options).then((ctx) => ctx.watch()).catch(() => process.exit(1));
+}
