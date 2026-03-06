@@ -30,6 +30,28 @@ export interface VTodoData {
   url?: string; // obsidian:// URI
 }
 
+function foldLine(line: string): string {
+  const encoder = new TextEncoder();
+  if (encoder.encode(line).length <= 75) return line;
+  const result: string[] = [];
+  let current = "";
+  let currentBytes = 0;
+  for (const ch of line) {
+    const chBytes = encoder.encode(ch).length;
+    const limit = result.length === 0 ? 75 : 74;
+    if (currentBytes + chBytes > limit) {
+      result.push(current);
+      current = " " + ch;
+      currentBytes = 1 + chBytes;
+    } else {
+      current += ch;
+      currentBytes += chBytes;
+    }
+  }
+  if (current) result.push(current);
+  return result.join("\r\n");
+}
+
 function escapeICalText(text: string): string {
   return text
     .replace(/\\/g, "\\\\")
@@ -70,7 +92,7 @@ function buildVCalendar(data: VTodoData): string {
     lines.push(`URL:${data.url}`);
   }
   lines.push("END:VTODO", "END:VCALENDAR");
-  return lines.join("\r\n") + "\r\n";
+  return lines.map(foldLine).join("\r\n") + "\r\n";
 }
 
 function parseICalDate(value: string): string | null {
@@ -144,7 +166,11 @@ export class CalDAVClient {
       ? settings.serverUrl
       : settings.serverUrl + "/";
 
-    this.authHeader = "Basic " + btoa(`${settings.username}:${settings.password}`);
+    if (!this.calendarUrl.startsWith("https://")) {
+      throw new CalDAVNetworkError("Only HTTPS connections are supported to protect your credentials.");
+    }
+
+    this.authHeader = "Basic " + btoa(unescape(encodeURIComponent(`${settings.username}:${settings.password}`)));
 
     // Verify connectivity with a PROPFIND
     try {
@@ -237,7 +263,7 @@ export class CalDAVClient {
     }
 
     const icsContent = response.text;
-    const etag = response.headers["etag"] ?? "";
+    const etag = (response.headers["etag"] ?? "").replace(/[\r\n]/g, "");
     const data = parseVCalendar(icsContent);
     if (!data) return null;
 
