@@ -32,6 +32,10 @@ export default class CalDAVSyncPlugin extends Plugin {
       },
     });
 
+    this.app.workspace.onLayoutReady(async () => {
+      await this.syncAll();
+    });
+
     this.registerEvent(
       this.app.vault.on("modify", async (file) => {
         if (!(file instanceof TFile)) return;

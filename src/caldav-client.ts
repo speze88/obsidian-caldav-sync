@@ -60,6 +60,7 @@ function buildVCalendar(data: VTodoData): string {
     `DTSTAMP:${dtstamp}`,
     `SUMMARY:${escapeICalText(data.summary)}`,
     `STATUS:${status}`,
+    "CATEGORIES:Obsidian",
   ];
   if (data.dueDate) {
     const compact = data.dueDate.replace(/-/g, "");
