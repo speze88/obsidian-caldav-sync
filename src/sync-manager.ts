@@ -146,7 +146,7 @@ export class SyncManager {
     if (patches.size === 0) return false;
 
     const newContent = applyLinePatch(content, patches);
-    await app.vault.modify(file, newContent);
+    await app.vault.process(file, () => newContent);
     return true;
   }
 

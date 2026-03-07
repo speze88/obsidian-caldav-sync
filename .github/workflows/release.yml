@@ -62,5 +62,6 @@ jobs:
           files: |
             main.js
             manifest.json
+            styles.css
             versions.json
           generate_release_notes: true

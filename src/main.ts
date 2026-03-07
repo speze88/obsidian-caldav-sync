@@ -20,7 +20,7 @@ export default class CalDAVSyncPlugin extends Plugin {
 
     this.addSettingTab(new CalDAVSyncSettingTab(this.app, this));
 
-    this.addRibbonIcon("refresh-cw", "Sync CalDAV Tasks", async () => {
+    this.addRibbonIcon("refresh-cw", "Sync CalDAV tasks", async () => {
       await this.syncAll();
     });
 

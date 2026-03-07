@@ -27,13 +27,10 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl("h2", { text: "CalDAV Task Sync Settings" });
-
-    const warning = containerEl.createEl("p", {
+    containerEl.createEl("p", {
       text: "⚠ Credentials are stored in plaintext in your vault's plugin data folder. Do not sync your vault with untrusted or public cloud services.",
+      cls: "caldav-sync-warning",
     });
-    warning.style.color = "var(--color-orange)";
-    warning.style.fontSize = "0.9em";
 
     new Setting(containerEl)
       .setName("Server URL")
