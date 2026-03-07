@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to release (e.g. 1.0.0)'
+        required: true
 
 permissions:
   contents: write
@@ -24,7 +29,7 @@ jobs:
 
       - name: Set version from tag
         run: |
-          VERSION=${GITHUB_REF_NAME}
+          VERSION=${GITHUB_REF_NAME:-${{ inputs.tag }}}
           MIN_APP=$(jq -r '.minAppVersion' manifest.json)
           jq --arg v "$VERSION" '.version = $v' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
           jq --arg v "$VERSION" '.version = $v' package.json  > package.tmp  && mv package.tmp  package.json
