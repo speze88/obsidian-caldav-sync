@@ -24,12 +24,29 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag (manual trigger only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.version.outputs.value }}
+          git push origin ${{ steps.version.outputs.value }}
+
       - name: Install dependencies
         run: npm install
 
-      - name: Set version from tag
+      - name: Set version in manifests
         run: |
-          VERSION=${GITHUB_REF_NAME:-${{ inputs.tag }}}
+          VERSION=${{ steps.version.outputs.value }}
           MIN_APP=$(jq -r '.minAppVersion' manifest.json)
           jq --arg v "$VERSION" '.version = $v' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
           jq --arg v "$VERSION" '.version = $v' package.json  > package.tmp  && mv package.tmp  package.json
@@ -41,6 +58,7 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.value }}
           files: |
             main.js
             manifest.json
