@@ -1,5 +1,5 @@
 {
-  "id": "obsidian-caldav-sync",
+  "id": "caldav-sync",
   "name": "CalDAV Task Sync",
   "version": "1.0.0",
   "minAppVersion": "1.0.0",
