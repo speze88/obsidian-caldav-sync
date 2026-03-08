@@ -170,7 +170,10 @@ export class CalDAVClient {
       throw new CalDAVNetworkError("Only HTTPS connections are supported to protect your credentials.");
     }
 
-    this.authHeader = "Basic " + btoa(unescape(encodeURIComponent(`${settings.username}:${settings.password}`)));
+    const credentials = `${settings.username}:${settings.password}`;
+    const encoded = new TextEncoder().encode(credentials);
+    const binary = String.fromCharCode(...encoded);
+    this.authHeader = "Basic " + btoa(binary);
 
     // Verify connectivity with a PROPFIND
     try {

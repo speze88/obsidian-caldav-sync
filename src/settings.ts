@@ -65,7 +65,7 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
       .setDesc("Your CalDAV password")
       .addText((text) => {
         text
-          .setPlaceholder("password")
+          .setPlaceholder("Password")
           .setValue(this.plugin.settings.password)
           .onChange(async (value) => {
             this.plugin.settings.password = value;
