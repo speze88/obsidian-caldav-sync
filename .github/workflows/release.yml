@@ -33,11 +33,14 @@ jobs:
             echo "value=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create and push tag (manual trigger only)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create and push tag (manual trigger only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
           git tag ${{ steps.version.outputs.value }}
           git push origin ${{ steps.version.outputs.value }}
 
@@ -50,7 +53,17 @@ jobs:
           MIN_APP=$(jq -r '.minAppVersion' manifest.json)
           jq --arg v "$VERSION" '.version = $v' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
           jq --arg v "$VERSION" '.version = $v' package.json  > package.tmp  && mv package.tmp  package.json
-          jq --arg v "$VERSION" --arg m "$MIN_APP" '. + {($v): $m}' versions.json > versions.tmp && mv versions.tmp versions.json
+          # Only add entry to versions.json if minAppVersion changed
+          LAST_MIN_APP=$(jq -r '. | to_entries | last | .value' versions.json)
+          if [ "$MIN_APP" != "$LAST_MIN_APP" ]; then
+            jq --arg v "$VERSION" --arg m "$MIN_APP" '. + {($v): $m}' versions.json > versions.tmp && mv versions.tmp versions.json
+          fi
+
+      - name: Commit updated versions
+        run: |
+          git add manifest.json package.json versions.json
+          git diff --cached --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.value }}"
+          git push origin HEAD:master
 
       - name: Build
         run: npm run build
