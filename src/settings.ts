@@ -28,7 +28,7 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     containerEl.createEl("p", {
-      text: "⚠ Credentials are stored in plaintext in your vault's plugin data folder. Do not sync your vault with untrusted or public cloud services.",
+      text: "⚠ Credentials are stored in plaintext in your vault's plugin data folder — do not sync your vault with untrusted or public cloud services.",
       cls: "caldav-sync-warning",
     });
 
@@ -49,10 +49,10 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Username")
-      .setDesc("Your CalDAV username (typically your full email address for mailcow)")
+      .setDesc("Your username — typically your full email address for mailcow")
       .addText((text) =>
         text
-          .setPlaceholder("user@example.com")
+          .setPlaceholder("username")
           .setValue(this.plugin.settings.username)
           .onChange(async (value) => {
             this.plugin.settings.username = value;
@@ -62,7 +62,7 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Password")
-      .setDesc("Your CalDAV password")
+      .setDesc("Your password")
       .addText((text) => {
         text
           .setPlaceholder("Password")
@@ -76,7 +76,7 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Sync tag")
-      .setDesc("Tag used to identify tasks for CalDAV sync")
+      .setDesc("Tag used to identify tasks to sync")
       .addText((text) =>
         text
           .setPlaceholder("#caldav")

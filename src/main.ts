@@ -20,13 +20,13 @@ export default class CalDAVSyncPlugin extends Plugin {
 
     this.addSettingTab(new CalDAVSyncSettingTab(this.app, this));
 
-    this.addRibbonIcon("refresh-cw", "Sync CalDAV tasks", async () => {
+    this.addRibbonIcon("refresh-cw", "Sync tasks", async () => {
       await this.syncAll();
     });
 
     this.addCommand({
       id: "sync-caldav-tasks",
-      name: "Sync all CalDAV tasks",
+      name: "Sync all tasks",
       callback: async () => {
         await this.syncAll();
       },
@@ -78,7 +78,7 @@ export default class CalDAVSyncPlugin extends Plugin {
 
   private async syncAll() {
     if (!this.syncManager) {
-      new Notice("CalDAV Sync: not connected to server.", 4000);
+      new Notice("CalDAV: not connected to server.", 4000);
       return;
     }
 
@@ -118,7 +118,7 @@ export default class CalDAVSyncPlugin extends Plugin {
     } catch (err) {
       this.syncManager = null;
       if (err instanceof CalDAVAuthError) {
-        new Notice(`CalDAV Sync: authentication failed. Check your credentials.`, 8000);
+        new Notice(`CalDAV: authentication failed — check your credentials.`, 8000);
       } else {
         new Notice(`CalDAV Sync: could not connect to server — ${err}`, 8000);
       }
