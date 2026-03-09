@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type CalDAVSyncPlugin from "./main";
 
 export interface CalDAVSyncSettings {
@@ -73,6 +73,30 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
           });
         text.inputEl.type = "password";
       });
+
+    new Setting(containerEl)
+      .setName("Test connection")
+      .setDesc("Check that the server URL and credentials are correct.")
+      .addButton((btn) =>
+        btn
+          .setButtonText("Test connection")
+          .onClick(async () => {
+            btn.setButtonText("Testing…");
+            btn.setDisabled(true);
+            const result = await this.plugin.connectClient();
+            btn.setDisabled(false);
+            if (result === "ok") {
+              btn.setButtonText("Connected");
+              new Notice("CalDAV: connected successfully.", 4000);
+            } else if (result === "auth") {
+              btn.setButtonText("Test connection");
+              new Notice("CalDAV: authentication failed — check your credentials.", 6000);
+            } else {
+              btn.setButtonText("Test connection");
+              new Notice("CalDAV: could not connect to server.", 6000);
+            }
+          })
+      );
 
     new Setting(containerEl)
       .setName("Sync tag")

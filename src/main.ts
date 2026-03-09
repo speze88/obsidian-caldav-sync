@@ -73,7 +73,23 @@ export default class CalDAVSyncPlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
-    await this.initializeClient();
+  }
+
+  async connectClient(): Promise<"ok" | "auth" | "error"> {
+    try {
+      await this.client.initialize(this.settings);
+      if (this.client.isInitialized()) {
+        this.syncManager = new SyncManager(this.client, this.settings);
+        return "ok";
+      } else {
+        this.syncManager = null;
+        return "error";
+      }
+    } catch (err) {
+      this.syncManager = null;
+      if (err instanceof CalDAVAuthError) return "auth";
+      return "error";
+    }
   }
 
   private async syncAll() {
@@ -108,20 +124,11 @@ export default class CalDAVSyncPlugin extends Plugin {
   }
 
   private async initializeClient() {
-    try {
-      await this.client.initialize(this.settings);
-      if (this.client.isInitialized()) {
-        this.syncManager = new SyncManager(this.client, this.settings);
-      } else {
-        this.syncManager = null;
-      }
-    } catch (err) {
-      this.syncManager = null;
-      if (err instanceof CalDAVAuthError) {
-        new Notice(`CalDAV: authentication failed — check your credentials.`, 8000);
-      } else {
-        new Notice(`CalDAV Sync: could not connect to server — ${err}`, 8000);
-      }
+    const result = await this.connectClient();
+    if (result === "auth") {
+      new Notice("CalDAV: authentication failed — check your credentials.", 8000);
+    } else if (result === "error" && this.settings.serverUrl) {
+      new Notice("CalDAV: could not connect to server.", 8000);
     }
   }
 }
