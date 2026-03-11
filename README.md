@@ -4,7 +4,8 @@ An [Obsidian](https://obsidian.md) plugin that bidirectionally synchronizes mark
 
 ## Features
 
-- Tag any task with `#caldav` to sync it to your CalDAV calendar as a VTODO
+- Tag tasks with a configured calendar tag such as `#caldav`, `#work`, or `#private`
+- Map multiple CalDAV calendars to different tags
 - Syncs on file save — no background polling
 - Bidirectional: push completions to the server, pull remote title/status changes back
 - UIDs stored in invisible HTML comments so your notes stay readable
@@ -14,12 +15,12 @@ An [Obsidian](https://obsidian.md) plugin that bidirectionally synchronizes mark
 
 **Before sync** (you write this):
 ```
-- [ ] Buy groceries #caldav
+- [ ] Buy groceries #private
 ```
 
 **After sync** (UID written back automatically):
 ```
-- [ ] Buy groceries #caldav <!-- caldav-uid:550e8400-e29b-41d4-a716-446655440000 -->
+- [ ] Buy groceries #private <!-- caldav-uid:550e8400-e29b-41d4-a716-446655440000 -->
 ```
 
 The UID comment is invisible in Obsidian's reading/preview mode.
@@ -49,14 +50,33 @@ Then copy `main.js` and `manifest.json` to your vault's plugin folder as above.
 
 ## Configuration
 
-Go to Settings → CalDAV Task Sync and fill in:
+Go to Settings → CalDAV Task Sync and fill in the shared credentials plus one or more calendar mappings:
 
 | Field | Description | Example |
 |---|---|---|
-| Server URL | Full CalDAV calendar URL with trailing slash | `https://mail.example.com/SOGo/dav/user@example.com/Calendar/personal/` |
 | Username | Your CalDAV username (usually your full email for mailcow) | `user@example.com` |
 | Password | Your CalDAV password | |
-| Sync tag | Tag that identifies tasks to sync | `#caldav` |
+| Calendar name | Optional label shown in settings | `Private` |
+| Server URL | Full CalDAV calendar URL with trailing slash | `https://mail.example.com/SOGo/dav/user@example.com/Calendar/personal/` |
+| Tag | Tag that routes a task into this calendar | `#private` |
+
+Use `Add calendar` to create additional mappings. Username and password are shared across all configured calendars.
+
+Example mappings:
+
+| Tag | Calendar |
+|---|---|
+| `#private` | Personal CalDAV calendar |
+| `#work` | Work CalDAV calendar |
+
+Example task routing:
+
+```text
+- [ ] Pay rent #private
+- [ ] Prepare Q2 review #work
+```
+
+Each task is synced to the calendar whose configured tag appears on the same task line.
 
 ### Finding your CalDAV URL (mailcow / SOGo)
 

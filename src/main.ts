@@ -1,22 +1,15 @@
 import { Notice, Plugin, TFile } from "obsidian";
-import {
-  CalDAVSyncSettings,
-  CalDAVSyncSettingTab,
-  DEFAULT_SETTINGS,
-} from "./settings";
-import { CalDAVClient, CalDAVAuthError } from "./caldav-client";
+import { CalDAVSyncSettings, CalDAVSyncSettingTab, normalizeSettings } from "./settings";
 import { SyncManager } from "./sync-manager";
 
 export default class CalDAVSyncPlugin extends Plugin {
-  settings: CalDAVSyncSettings = DEFAULT_SETTINGS;
-  private client: CalDAVClient = new CalDAVClient();
-  private syncManager: SyncManager | null = null;
+  settings!: CalDAVSyncSettings;
+  private syncManager: SyncManager = new SyncManager({ username: "", password: "", calendars: [] });
   // Re-entrancy guard: tracks files currently being written by the plugin
   private writingFiles = new Set<string>();
 
   async onload() {
     await this.loadSettings();
-    await this.initializeClient();
 
     this.addSettingTab(new CalDAVSyncSettingTab(this.app, this));
 
@@ -44,8 +37,6 @@ export default class CalDAVSyncPlugin extends Plugin {
         // Skip if this modify was triggered by our own write
         if (this.writingFiles.has(file.path)) return;
 
-        if (!this.syncManager) return;
-
         try {
           this.writingFiles.add(file.path);
           const modified = await this.syncManager.syncFile(file, this.app);
@@ -68,33 +59,19 @@ export default class CalDAVSyncPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = normalizeSettings(await this.loadData());
+    this.syncManager = new SyncManager(this.settings);
   }
 
   async saveSettings() {
     await this.saveData(this.settings);
-  }
-
-  async connectClient(): Promise<"ok" | "auth" | "error"> {
-    try {
-      await this.client.initialize(this.settings);
-      if (this.client.isInitialized()) {
-        this.syncManager = new SyncManager(this.client, this.settings);
-        return "ok";
-      } else {
-        this.syncManager = null;
-        return "error";
-      }
-    } catch (err) {
-      this.syncManager = null;
-      if (err instanceof CalDAVAuthError) return "auth";
-      return "error";
-    }
+    this.syncManager = new SyncManager(this.settings);
   }
 
   private async syncAll() {
-    if (!this.syncManager) {
-      new Notice("CalDAV: not connected to server.", 4000);
+    const syncTags = this.syncManager.getSyncTags();
+    if (syncTags.length === 0) {
+      new Notice("CalDAV: no calendars configured.", 4000);
       return;
     }
 
@@ -103,7 +80,7 @@ export default class CalDAVSyncPlugin extends Plugin {
 
     for (const file of files) {
       const content = await this.app.vault.read(file);
-      if (!content.includes(this.settings.syncTag)) continue;
+      if (!syncTags.some((tag) => content.includes(tag))) continue;
 
       try {
         this.writingFiles.add(file.path);
@@ -121,14 +98,5 @@ export default class CalDAVSyncPlugin extends Plugin {
     }
 
     new Notice(`CalDAV Sync: sync complete${synced > 0 ? ` (${synced} file${synced > 1 ? "s" : ""} updated)` : ""}`, 4000);
-  }
-
-  private async initializeClient() {
-    const result = await this.connectClient();
-    if (result === "auth") {
-      new Notice("CalDAV: authentication failed — check your credentials.", 8000);
-    } else if (result === "error" && this.settings.serverUrl) {
-      new Notice("CalDAV: could not connect to server.", 8000);
-    }
   }
 }

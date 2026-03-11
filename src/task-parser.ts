@@ -10,14 +10,16 @@ export interface ParsedTask {
   title: string;
   uid: string | null;
   dueDate: string | null;
+  syncTag: string;
 }
 
 /**
- * Parse all tasks in the content that include the given syncTag.
+ * Parse all tasks in the content that include any of the given syncTags.
  */
-export function parseTasks(content: string, syncTag: string): ParsedTask[] {
+export function parseTasks(content: string, syncTags: string[]): ParsedTask[] {
   const lines = content.split("\n");
   const tasks: ParsedTask[] = [];
+  const configuredTags = syncTags.filter(Boolean);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -25,8 +27,8 @@ export function parseTasks(content: string, syncTag: string): ParsedTask[] {
     if (!match) continue;
 
     const fullTaskText = match[3];
-    // Only include tasks that have the sync tag
-    if (!fullTaskText.includes(syncTag)) continue;
+    const syncTag = findMatchingTag(fullTaskText, configuredTags);
+    if (!syncTag) continue;
 
     const completed = match[2].toLowerCase() === "x";
     const uidMatch = UID_REGEX.exec(fullTaskText);
@@ -37,7 +39,7 @@ export function parseTasks(content: string, syncTag: string): ParsedTask[] {
     // Extract title: remove UID comment, sync tag, due date, and trailing whitespace
     let title = fullTaskText
       .replace(UID_REGEX, "")
-      .replace(syncTag, "")
+      .replace(buildTagRegex(syncTag), "")
       .replace(DUE_DATE_REGEX, "")
       .trim();
 
@@ -48,10 +50,32 @@ export function parseTasks(content: string, syncTag: string): ParsedTask[] {
       title,
       uid,
       dueDate,
+      syncTag,
     });
   }
 
   return tasks;
+}
+
+function findMatchingTag(text: string, syncTags: string[]): string | null {
+  const tags = extractTags(text);
+  for (const syncTag of syncTags) {
+    if (tags.has(syncTag)) return syncTag;
+  }
+  return null;
+}
+
+function extractTags(text: string): Set<string> {
+  const matches = text.match(/#[^\s#]+/g) ?? [];
+  return new Set(matches);
+}
+
+function buildTagRegex(tag: string): RegExp {
+  return new RegExp(`(^|\\s)${escapeRegExp(tag)}(?=\\s|$)`);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**

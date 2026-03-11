@@ -12,14 +12,13 @@ import {
   buildLineWithCompletion,
   applyLinePatch,
 } from "./task-parser";
-import type { CalDAVSyncSettings } from "./settings";
+import type { CalDAVCalendarSettings, CalDAVSyncSettings } from "./settings";
 
 export class SyncManager {
-  private client: CalDAVClient;
   private settings: CalDAVSyncSettings;
+  private clients = new Map<string, CalDAVClient>();
 
-  constructor(client: CalDAVClient, settings: CalDAVSyncSettings) {
-    this.client = client;
+  constructor(settings: CalDAVSyncSettings) {
     this.settings = settings;
   }
 
@@ -34,10 +33,11 @@ export class SyncManager {
   }
 
   async syncFile(file: TFile, app: App): Promise<boolean> {
-    if (!this.client.isInitialized()) return false;
+    const calendarsByTag = this.getCalendarsByTag();
+    if (calendarsByTag.size === 0) return false;
 
     const content = await app.vault.read(file);
-    const tasks = parseTasks(content, this.settings.syncTag);
+    const tasks = parseTasks(content, [...calendarsByTag.keys()]);
     const noteUrl = this.obsidianUrl(app, file);
 
     if (tasks.length === 0) return false;
@@ -46,21 +46,25 @@ export class SyncManager {
     const errors: string[] = [];
 
     for (const task of tasks) {
+      const calendar = calendarsByTag.get(task.syncTag);
+      if (!calendar) continue;
+
       try {
+        const client = await this.getClient(calendar);
         if (!task.uid) {
           // New task: create on server and write UID back
           const uid = uuidv4();
-          await this.client.createVTodo({
+          await client.createVTodo({
             uid,
             summary: task.title,
             completed: task.completed,
             dueDate: task.dueDate,
             url: noteUrl,
           });
-          patches.set(task.lineIndex, buildLineWithUid(task, uid, this.settings.syncTag));
+          patches.set(task.lineIndex, buildLineWithUid(task, uid, task.syncTag));
         } else {
           // Existing task: fetch remote state and reconcile
-          let remote = await this.client.fetchVTodo(task.uid);
+          let remote = await client.fetchVTodo(task.uid);
 
           if (!remote) {
             // Remote 404: log warning, leave local unchanged
@@ -80,7 +84,7 @@ export class SyncManager {
           }
           // 2. Local [ ], remote COMPLETED → remote wins, pull [x]
           else if (!task.completed && remote.data.completed) {
-            patchLine = buildLineWithCompletion(task, true, this.settings.syncTag);
+            patchLine = buildLineWithCompletion(task, true, task.syncTag);
           }
 
           // 3. Title differs → remote wins, pull title update
@@ -90,7 +94,7 @@ export class SyncManager {
             patchLine = buildLineWithCompletion(
               updatedTask,
               completed,
-              this.settings.syncTag,
+              task.syncTag,
               task.uid
             );
           }
@@ -112,7 +116,7 @@ export class SyncManager {
               patchLine = buildLineWithCompletion(
                 baseTask,
                 completed,
-                this.settings.syncTag,
+                task.syncTag,
                 task.uid,
                 remoteDue
               );
@@ -120,7 +124,7 @@ export class SyncManager {
           }
 
           if (needsServerUpdate) {
-            await this.updateWithRetry(updatedData, remote.etag);
+            await this.updateWithRetry(client, updatedData, remote.etag);
           }
 
           if (patchLine !== null) {
@@ -129,12 +133,16 @@ export class SyncManager {
         }
       } catch (err) {
         if (err instanceof CalDAVAuthError) {
-          errors.push(`Auth error: ${err.message}`);
+          errors.push(`Auth error for "${calendar.name || calendar.syncTag}": ${err.message}`);
           break; // No point continuing if auth is broken
         } else if (err instanceof CalDAVNetworkError) {
-          errors.push(`Network error syncing "${task.title}": ${err.message}`);
+          errors.push(
+            `Network error syncing "${task.title}" to "${calendar.name || calendar.syncTag}": ${err.message}`
+          );
         } else {
-          errors.push(`Error syncing "${task.title}": ${err}`);
+          errors.push(
+            `Error syncing "${task.title}" to "${calendar.name || calendar.syncTag}": ${err}`
+          );
         }
       }
     }
@@ -150,18 +158,56 @@ export class SyncManager {
     return true;
   }
 
+  getSyncTags(): string[] {
+    return this.settings.calendars
+      .map((calendar) => calendar.syncTag)
+      .filter((tag, index, all) => Boolean(tag) && all.indexOf(tag) === index);
+  }
+
+  private getCalendarsByTag(): Map<string, CalDAVCalendarSettings> {
+    const calendars = new Map<string, CalDAVCalendarSettings>();
+    for (const calendar of this.settings.calendars) {
+      if (!calendar.serverUrl || !calendar.syncTag) continue;
+      if (!calendars.has(calendar.syncTag)) {
+        calendars.set(calendar.syncTag, calendar);
+      }
+    }
+    return calendars;
+  }
+
+  private async getClient(calendar: CalDAVCalendarSettings): Promise<CalDAVClient> {
+    const cacheKey = calendar.id;
+    const cached = this.clients.get(cacheKey);
+    if (cached?.isInitialized()) return cached;
+
+    const client = new CalDAVClient();
+    await client.initialize({
+      serverUrl: calendar.serverUrl,
+      username: this.settings.username,
+      password: this.settings.password,
+    });
+    if (!client.isInitialized()) {
+      throw new CalDAVNetworkError(
+        `Calendar "${calendar.name || calendar.syncTag}" is not fully configured.`
+      );
+    }
+    this.clients.set(cacheKey, client);
+    return client;
+  }
+
   private async updateWithRetry(
+    client: CalDAVClient,
     data: Parameters<CalDAVClient["updateVTodo"]>[0],
     etag: string
   ): Promise<void> {
     try {
-      await this.client.updateVTodo(data, etag);
+      await client.updateVTodo(data, etag);
     } catch (err) {
       if (err instanceof CalDAVConflictError) {
         // 412: re-fetch ETag and retry once
-        const remote = await this.client.fetchVTodo(data.uid);
+        const remote = await client.fetchVTodo(data.uid);
         if (!remote) return;
-        await this.client.updateVTodo(data, remote.etag);
+        await client.updateVTodo(data, remote.etag);
       } else {
         throw err;
       }

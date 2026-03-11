@@ -1,5 +1,9 @@
 import { requestUrl, RequestUrlResponse } from "obsidian";
-import type { CalDAVSyncSettings } from "./settings";
+export interface CalDAVConnectionSettings {
+  serverUrl: string;
+  username: string;
+  password: string;
+}
 
 export class CalDAVAuthError extends Error {
   constructor(message: string) {
@@ -155,7 +159,7 @@ export class CalDAVClient {
   private calendarUrl: string = "";
   private authHeader: string = "";
 
-  async initialize(settings: CalDAVSyncSettings): Promise<void> {
+  async initialize(settings: CalDAVConnectionSettings): Promise<void> {
     this.initialized = false;
     if (!settings.serverUrl || !settings.username || !settings.password) {
       return;
