@@ -73,6 +73,26 @@ export function normalizeSettings(data: unknown): CalDAVSyncSettings {
   };
 }
 
+function normalizeSyncTag(value: string): string {
+  return value.startsWith("#") ? value : `#${value}`;
+}
+
+function findDuplicateSyncTags(calendars: CalDAVCalendarSettings[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+
+  for (const calendar of calendars) {
+    if (!calendar.syncTag) continue;
+    if (seen.has(calendar.syncTag)) {
+      duplicates.add(calendar.syncTag);
+      continue;
+    }
+    seen.add(calendar.syncTag);
+  }
+
+  return [...duplicates];
+}
+
 export class CalDAVSyncSettingTab extends PluginSettingTab {
   plugin: CalDAVSyncPlugin;
 
@@ -94,6 +114,14 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
     containerEl.createEl("p", {
       text: "Each calendar has its own URL, credentials, and sync tag. Tasks are synced to the calendar whose tag appears on the task line.",
     });
+
+    const duplicateTags = findDuplicateSyncTags(this.plugin.settings.calendars);
+    if (duplicateTags.length > 0) {
+      containerEl.createEl("p", {
+        text: `Duplicate sync tags detected: ${duplicateTags.join(", ")}. Only the first calendar for each tag will be used until this is fixed.`,
+        cls: "caldav-sync-warning",
+      });
+    }
 
     this.plugin.settings.calendars.forEach((calendar, index) => {
       containerEl.createEl("h4", {
@@ -160,7 +188,21 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
             .setPlaceholder("#caldav")
             .setValue(calendar.syncTag)
             .onChange(async (value) => {
-              calendar.syncTag = value.startsWith("#") ? value : `#${value}`;
+              const normalizedTag = normalizeSyncTag(value);
+              const duplicate = this.plugin.settings.calendars.find(
+                (entry) => entry.id !== calendar.id && entry.syncTag === normalizedTag
+              );
+
+              if (duplicate) {
+                text.inputEl.value = calendar.syncTag;
+                new Notice(
+                  `Sync tag "${normalizedTag}" is already used by "${duplicate.name || "another calendar"}". Tags must be unique.`,
+                  6000
+                );
+                return;
+              }
+
+              calendar.syncTag = normalizedTag;
               await this.plugin.saveSettings();
             })
         );
