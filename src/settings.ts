@@ -86,13 +86,13 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     containerEl.createEl("p", {
-      text: "⚠ Credentials are stored in plaintext in your vault's plugin data folder — do not sync your vault with untrusted or public cloud services.",
+      text: "Credentials are stored in plaintext in your vault's plugin data folder. Do not sync your vault with untrusted or public cloud services.",
       cls: "caldav-sync-warning",
     });
 
     containerEl.createEl("h3", { text: "Calendars" });
     containerEl.createEl("p", {
-      text: "Each calendar has its own CalDAV URL, credentials, and sync tag. Tasks are synced to the calendar whose tag appears on the task line.",
+      text: "Each calendar has its own URL, credentials, and sync tag. Tasks are synced to the calendar whose tag appears on the task line.",
     });
 
     this.plugin.settings.calendars.forEach((calendar, index) => {
@@ -130,7 +130,7 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
         .setDesc("Username for this calendar, typically your full email address")
         .addText((text) =>
           text
-            .setPlaceholder("user@example.com")
+            .setPlaceholder("Email address")
             .setValue(calendar.username)
             .onChange(async (value) => {
               calendar.username = value;
@@ -176,13 +176,13 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
             btn.setDisabled(false);
             if (result === "ok") {
               btn.setButtonText("Connected");
-              new Notice("CalDAV: connected successfully.", 4000);
+              new Notice("Connected successfully.", 4000);
             } else if (result === "auth") {
               btn.setButtonText("Test connection");
-              new Notice("CalDAV: authentication failed — check your credentials.", 6000);
+              new Notice("Authentication failed. Check your credentials.", 6000);
             } else {
               btn.setButtonText("Test connection");
-              new Notice("CalDAV: could not connect to server.", 6000);
+              new Notice("Could not connect to the server.", 6000);
             }
           })
         )

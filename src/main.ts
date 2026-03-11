@@ -71,7 +71,7 @@ export default class CalDAVSyncPlugin extends Plugin {
   private async syncAll() {
     const syncTags = this.syncManager.getSyncTags();
     if (syncTags.length === 0) {
-      new Notice("CalDAV: no calendars configured.", 4000);
+      new Notice("No calendars configured.", 4000);
       return;
     }
 

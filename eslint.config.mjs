@@ -5,6 +5,6 @@ export default [
   {
     plugins: { obsidianmd },
     languageOptions: { parser: tsParser },
-    rules: { "obsidianmd/sentence-case": "error" },
+    rules: { "obsidianmd/ui/sentence-case": ["error", { enforceCamelCaseLower: true }] },
   },
 ];
