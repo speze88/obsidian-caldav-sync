@@ -183,8 +183,8 @@ export class SyncManager {
     const client = new CalDAVClient();
     await client.initialize({
       serverUrl: calendar.serverUrl,
-      username: this.settings.username,
-      password: this.settings.password,
+      username: calendar.username,
+      password: calendar.password,
     });
     if (!client.isInitialized()) {
       throw new CalDAVNetworkError(

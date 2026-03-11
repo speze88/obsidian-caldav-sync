@@ -50,17 +50,17 @@ Then copy `main.js` and `manifest.json` to your vault's plugin folder as above.
 
 ## Configuration
 
-Go to Settings → CalDAV Task Sync and fill in the shared credentials plus one or more calendar mappings:
+Go to Settings → CalDAV Task Sync and add one or more calendar mappings:
 
 | Field | Description | Example |
 |---|---|---|
-| Username | Your CalDAV username (usually your full email for mailcow) | `user@example.com` |
-| Password | Your CalDAV password | |
 | Calendar name | Optional label shown in settings | `Private` |
 | Server URL | Full CalDAV calendar URL with trailing slash | `https://mail.example.com/SOGo/dav/user@example.com/Calendar/personal/` |
+| Username | Username for this calendar (usually your full email for mailcow) | `user@example.com` |
+| Password | Password for this calendar | |
 | Tag | Tag that routes a task into this calendar | `#private` |
 
-Use `Add calendar` to create additional mappings. Username and password are shared across all configured calendars.
+Use `Add calendar` to create additional mappings. Each calendar stores its own URL and credentials, so different servers or accounts can be used side by side.
 
 Example mappings:
 

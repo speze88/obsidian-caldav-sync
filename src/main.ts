@@ -4,7 +4,7 @@ import { SyncManager } from "./sync-manager";
 
 export default class CalDAVSyncPlugin extends Plugin {
   settings!: CalDAVSyncSettings;
-  private syncManager: SyncManager = new SyncManager({ username: "", password: "", calendars: [] });
+  private syncManager: SyncManager = new SyncManager({ calendars: [] });
   // Re-entrancy guard: tracks files currently being written by the plugin
   private writingFiles = new Set<string>();
 

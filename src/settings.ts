@@ -5,21 +5,21 @@ import { CalDAVClient, CalDAVAuthError } from "./caldav-client";
 export interface CalDAVCalendarSettings {
   id: string;
   name: string;
+  username: string;
+  password: string;
   serverUrl: string;
   syncTag: string;
 }
 
 export interface CalDAVSyncSettings {
-  username: string;
-  password: string;
   calendars: CalDAVCalendarSettings[];
+  username?: string;
+  password?: string;
   serverUrl?: string;
   syncTag?: string;
 }
 
 export const DEFAULT_SETTINGS: CalDAVSyncSettings = {
-  username: "",
-  password: "",
   calendars: [],
 };
 
@@ -27,6 +27,8 @@ export function createCalendarSettings(): CalDAVCalendarSettings {
   return {
     id: `calendar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: "",
+    username: "",
+    password: "",
     serverUrl: "",
     syncTag: "#caldav",
   };
@@ -34,6 +36,8 @@ export function createCalendarSettings(): CalDAVCalendarSettings {
 
 export function normalizeSettings(data: unknown): CalDAVSyncSettings {
   const loaded = (data ?? {}) as Partial<CalDAVSyncSettings>;
+  const legacyUsername = loaded.username ?? "";
+  const legacyPassword = loaded.password ?? "";
   const calendars = Array.isArray(loaded.calendars)
     ? loaded.calendars
         .filter((calendar): calendar is Partial<CalDAVCalendarSettings> => {
@@ -42,6 +46,8 @@ export function normalizeSettings(data: unknown): CalDAVSyncSettings {
         .map((calendar) => ({
           id: calendar.id ?? createCalendarSettings().id,
           name: calendar.name ?? "",
+          username: calendar.username ?? legacyUsername,
+          password: calendar.password ?? legacyPassword,
           serverUrl: calendar.serverUrl ?? "",
           syncTag: (calendar.syncTag ?? "#caldav").startsWith("#")
             ? (calendar.syncTag ?? "#caldav")
@@ -53,6 +59,8 @@ export function normalizeSettings(data: unknown): CalDAVSyncSettings {
     calendars.push({
       id: createCalendarSettings().id,
       name: "Standard",
+      username: legacyUsername,
+      password: legacyPassword,
       serverUrl: loaded.serverUrl,
       syncTag: (loaded.syncTag ?? "#caldav").startsWith("#")
         ? (loaded.syncTag ?? "#caldav")
@@ -61,8 +69,6 @@ export function normalizeSettings(data: unknown): CalDAVSyncSettings {
   }
 
   return {
-    username: loaded.username ?? "",
-    password: loaded.password ?? "",
     calendars,
   };
 }
@@ -84,36 +90,9 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
       cls: "caldav-sync-warning",
     });
 
-    new Setting(containerEl)
-      .setName("Username")
-      .setDesc("Your username — typically your full email address for mailcow")
-      .addText((text) =>
-        text
-          .setPlaceholder("username")
-          .setValue(this.plugin.settings.username)
-          .onChange(async (value) => {
-            this.plugin.settings.username = value;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName("Password")
-      .setDesc("Your password")
-      .addText((text) => {
-        text
-          .setPlaceholder("Password")
-          .setValue(this.plugin.settings.password)
-          .onChange(async (value) => {
-            this.plugin.settings.password = value;
-            await this.plugin.saveSettings();
-          });
-        text.inputEl.type = "password";
-      });
-
     containerEl.createEl("h3", { text: "Calendars" });
     containerEl.createEl("p", {
-      text: "Each calendar is linked to a dedicated tag. Tasks are synced to the calendar whose tag appears on the task line.",
+      text: "Each calendar has its own CalDAV URL, credentials, and sync tag. Tasks are synced to the calendar whose tag appears on the task line.",
     });
 
     this.plugin.settings.calendars.forEach((calendar, index) => {
@@ -147,6 +126,33 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
         );
 
       new Setting(containerEl)
+        .setName("Username")
+        .setDesc("Username for this calendar, typically your full email address")
+        .addText((text) =>
+          text
+            .setPlaceholder("user@example.com")
+            .setValue(calendar.username)
+            .onChange(async (value) => {
+              calendar.username = value;
+              await this.plugin.saveSettings();
+            })
+        );
+
+      new Setting(containerEl)
+        .setName("Password")
+        .setDesc("Password for this calendar")
+        .addText((text) => {
+          text
+            .setPlaceholder("Password")
+            .setValue(calendar.password)
+            .onChange(async (value) => {
+              calendar.password = value;
+              await this.plugin.saveSettings();
+            });
+          text.inputEl.type = "password";
+        });
+
+      new Setting(containerEl)
         .setName("Tag")
         .setDesc("Tasks with this tag are synced to this calendar")
         .addText((text) =>
@@ -161,12 +167,12 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
 
       new Setting(containerEl)
         .setName("Connection")
-        .setDesc("Check this calendar URL with the shared credentials.")
+        .setDesc("Check this calendar URL with this calendar's credentials.")
         .addButton((btn) =>
           btn.setButtonText("Test connection").onClick(async () => {
             btn.setButtonText("Testing…");
             btn.setDisabled(true);
-            const result = await this.testCalendarConnection(calendar.serverUrl);
+            const result = await this.testCalendarConnection(calendar);
             btn.setDisabled(false);
             if (result === "ok") {
               btn.setButtonText("Connected");
@@ -204,14 +210,14 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
   }
 
   private async testCalendarConnection(
-    serverUrl: string
+    calendar: CalDAVCalendarSettings
   ): Promise<"ok" | "auth" | "error"> {
     try {
       const client = new CalDAVClient();
       await client.initialize({
-        serverUrl,
-        username: this.plugin.settings.username,
-        password: this.plugin.settings.password,
+        serverUrl: calendar.serverUrl,
+        username: calendar.username,
+        password: calendar.password,
       });
       return client.isInitialized() ? "ok" : "error";
     } catch (err) {
