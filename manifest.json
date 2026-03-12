@@ -1,7 +1,7 @@
 {
   "id": "caldav-sync",
   "name": "CalDAV Task Sync",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "minAppVersion": "1.4.0",
   "description": "Bidirectionally synchronize markdown tasks tagged with #caldav to/from a CalDAV server.",
   "author": "speze88",
