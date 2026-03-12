@@ -110,7 +110,7 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
       cls: "caldav-sync-warning",
     });
 
-    containerEl.createEl("h3", { text: "Calendars" });
+    new Setting(containerEl).setName("Calendars").setHeading();
     containerEl.createEl("p", {
       text: "Each calendar has its own URL, credentials, and sync tag. Tasks are synced to the calendar whose tag appears on the task line.",
     });
@@ -124,9 +124,9 @@ export class CalDAVSyncSettingTab extends PluginSettingTab {
     }
 
     this.plugin.settings.calendars.forEach((calendar, index) => {
-      containerEl.createEl("h4", {
-        text: calendar.name || `Calendar ${index + 1}`,
-      });
+      new Setting(containerEl)
+        .setName(calendar.name || `Calendar ${index + 1}`)
+        .setHeading();
 
       new Setting(containerEl)
         .setName("Name")
